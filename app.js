@@ -34,16 +34,16 @@ app.post("/register", async (request, response) => {
   const { username, name, password, gender, location } = requestBody;
   const hasedPassword = await bcrypt.hash(password, 12);
 
-  const selectBody = `SELECT * FROM user WHERE username = ${username}`;
+  const selectBody = `SELECT * FROM user WHERE username = '${username}'`;
 
-  const exportData = await database.run(selectBody);
+  const exportData = await database.get(selectBody);
   switch (true) {
     case exportData === undefined:
       const newBody = `
             INSERT INTO 
                 user (username,name,password,gender,location)
             VALUES
-                (${username},${name},${hasedPassword},${gender},${location});
+                ('${username}','${name}','${hasedPassword}','${gender}','${location}');
         `;
       await database.run(newBody);
       response.status = 200;
@@ -64,9 +64,9 @@ app.post("/login", async (request, response) => {
   const requestBody = request.body;
   const { username, password } = requestBody;
   const getLogin = `
-        SELECT * FROM user WHERE username = ${username}
+        SELECT * FROM user WHERE username = '${username}'
     `;
-  const selectQuery = await database.run(getLogin);
+  const selectQuery = await database.get(getLogin);
   const comparedValue = await bcrypt.compare(password, selectQuery.password);
   switch (true) {
     case selectQuery === undefined:
@@ -87,30 +87,35 @@ app.put("/change-password", async (request, response) => {
   const { username, oldPassword, newPassword } = requestBody;
 
   const getResult = `
-        SELECT * FROM user WHERE username = ${oldPassword}
+        SELECT * FROM user WHERE username = '${oldPassword}'
     `;
   const changePassword = await database.run(getResult);
+  //response.send(changePassword.password);
   const compareOldNew = await bcrypt.compare(
     oldPassword,
     changePassword.password
   );
-  switch (true) {
-    case compareOldNew === true:
-      const updateValues = `
-                UPDATE 
-                    user 
-                SET 
-                    newPassword = ${newPassword}
-                WHERE 
-                    username = ${username}
-            `;
-      await database.run(updateValues);
-      response.send("Password updated");
-      break;
-    case compareOldNew === false:
-      response.send("Invalid current password");
-    case newPassword.length < 5:
-      response.send("Password is too short");
-      break;
-  }
+  response.send(compareOldNew);
+    switch (true) {
+      case compareOldNew === undefined:
+          response.send("User not found")
+          break
+      case compareOldNew === true:
+        const updateValues = `
+                  UPDATE
+                      user
+                  SET
+                      newPassword = '${newPassword}'
+                  WHERE
+                      username = '${username}'
+              `;
+        await database.run(updateValues);
+        response.send("Password updated");
+        break;
+      case compareOldNew === false:
+        response.send("Invalid current password");
+      case newPassword.length < 5:
+        response.send("Password is too short");
+        break;
+    }
 });
